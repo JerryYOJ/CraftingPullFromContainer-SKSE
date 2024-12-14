@@ -1,6 +1,9 @@
 #include <spdlog/sinks/basic_file_sink.h>
 
 #include "hooks/hooks.h"
+#include "commands/commands.h"
+
+std::map<std::string, std::function<CommandManager::cmdfunc>> CommandManager::Registry;
 
 void InitializeLog() {
     auto logsFolder = SKSE::log::log_directory();
@@ -21,6 +24,7 @@ SKSEPluginLoad(const SKSE::LoadInterface *skse) {
     SKSE::AllocTrampoline(1 << 7);
 
     Hooks::Install();
+    Commands::Install();
 
     return true;
 }

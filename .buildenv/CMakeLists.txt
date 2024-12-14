@@ -37,6 +37,7 @@ if(DEFINED ENV{SKYRIM_MODS_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_MODS_FOLDER}")
 endif()
 
 # Otherwise, you can set OUTPUT_FOLDER to any place you'd like :)
+set(OUTPUT_FOLDER "C:\\Users\\Administrator\\AppData\\Local\\ModOrganizer\\Skyrim Special Edition\\mods\\CraftingPullFromContainers")
 
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 # Setup your SKSE plugin as an SKSE plugin!
@@ -45,6 +46,8 @@ add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${sources}) # <--- specifies plu
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23) # <--- use C++23 standard
 target_precompile_headers(${PROJECT_NAME} PRIVATE PCH.h) # <--- PCH.h is required!
 
+find_package(boost REQUIRED COMPONENTS algorithm)
+target_link_directories(${PROJECT_NAME} PRIVATE boost::algorithm)
 find_package(minhook CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE minhook::minhook)
 
