@@ -26,10 +26,10 @@ void CraftingPullFromContainers::Install()
 	REL::Relocation<std::uintptr_t> GetInvCount{ RELOCATION_ID(15869, 16109) };
 	REL::Relocation<std::uintptr_t> SetEnchOnItem{ RELOCATION_ID(15906, 16146) };
 	
-	MH_CreateHook((void*)GetItemCount.address(), GetContainerItemCount, reinterpret_cast<void**>(&_GetContainerItemCount));
-	MH_CreateHook((void*)GetInvItem.address(), GetInventoryItemEntryAtIdx, reinterpret_cast<void**>(&_GetInventoryItemEntryAtIdx));
-	MH_CreateHook((void*)GetInvCount.address(), GetInventoryItemCount, reinterpret_cast<void**>(&_GetInventoryItemCount));
-	MH_CreateHook((void*)SetEnchOnItem.address(), SetEnchantmentOnItem, reinterpret_cast<void**>(&_SetEnchantmentOnItem));
+	logger::debug("MH_CreateHook1 {}", MH_CreateHook((void*)GetItemCount.address(), GetContainerItemCount, reinterpret_cast<void**>(&_GetContainerItemCount)));
+	logger::debug("MH_CreateHook2 {}", MH_CreateHook((void*)GetInvItem.address(), GetInventoryItemEntryAtIdx, reinterpret_cast<void**>(&_GetInventoryItemEntryAtIdx)));
+	logger::debug("MH_CreateHook3 {}", MH_CreateHook((void*)GetInvCount.address(), GetInventoryItemCount, reinterpret_cast<void**>(&_GetInventoryItemCount)));
+	logger::debug("MH_CreateHook4 {}", MH_CreateHook((void*)SetEnchOnItem.address(), SetEnchantmentOnItem, reinterpret_cast<void**>(&_SetEnchantmentOnItem)));
 
 	_RemoveItem = REL::Relocation<uintptr_t>(RE::VTABLE_PlayerCharacter[0]).write_vfunc(0x56, RemoveItem);
 
@@ -58,8 +58,11 @@ int CraftingPullFromContainers::GetContainerItemCount(RE::TESObjectREFR* cont, b
 
 			for (auto&& it : cachedContainers) {
 				if (!it.cont || it.cont.get() == nullptr) return false;
-				it.itemCount = _GetContainerItemCount(it.cont.get().get(), false, true);
-				totalCount += it.itemCount;
+				it.itemCount = _GetContainerItemCount(it.cont.get().get(), false, true) - 1;
+
+				logger::debug("[GetContainerItemCount](cache) searching {} got {}", it.cont.get().get()->GetDisplayFullName(), it.itemCount);
+
+				totalCount += it.itemCount + 1;
 			}
 			return true;
 		};
@@ -67,6 +70,9 @@ int CraftingPullFromContainers::GetContainerItemCount(RE::TESObjectREFR* cont, b
 		
 		if (Validate()) {
 			cachedStationInventory.clear();
+
+			logger::debug("[GetContainerItemCount](cache) totalCount {}", totalCount);
+
 			return totalCount;
 		}
 	}
@@ -89,6 +95,9 @@ int CraftingPullFromContainers::GetContainerItemCount(RE::TESObjectREFR* cont, b
 
 
 				cachedContainers.push_back({ obj.CreateRefHandle(), _GetContainerItemCount(&obj, false, true) - 1});
+
+				logger::debug("[GetContainerItemCount] searching {} got {}", obj.GetDisplayFullName(), cachedContainers.back().itemCount + 1);
+
 				totalCount += cachedContainers.back().itemCount + 1;
 			}
 		}
@@ -109,6 +118,7 @@ int CraftingPullFromContainers::GetContainerItemCount(RE::TESObjectREFR* cont, b
 	}
 
 	//totalItems = totalCount;
+	logger::debug("[GetContainerItemCount] totalCount {}", totalCount);
 	return totalCount;
 }
 
@@ -131,6 +141,8 @@ RE::InventoryEntryData* CraftingPullFromContainers::GetInventoryItemEntryAtIdx(R
 			if (!invEntry->IsOwnedBy(RE::PlayerCharacter::GetSingleton()) && !IgnoreOwnership) return nullptr;
 
 			auto obj = invEntry->GetObject();
+
+			logger::debug("[GetInventoryItemEntryAtIdx] Adding {}", obj->GetName());
 
 			if (cachedStationInventory.contains(obj)) {
 				if (cachedStationInventory[invEntry->GetObject()]->object != invEntry->GetObject()) {
@@ -180,8 +192,8 @@ int CraftingPullFromContainers::GetInventoryItemCount(RE::InventoryChanges* inv,
 	
 	auto&& player = RE::PlayerCharacter::GetSingleton();
 	int totalCount = 0;
-	cachedContainers.push_back({ player->CreateRefHandle(), _GetInventoryItemCount(inv, item, filterClass) - 1});
-	totalCount += cachedContainers.back().itemCount + 1;
+	cachedContainers.push_back({ player->CreateRefHandle(), _GetInventoryItemCount(inv, item, filterClass)});
+	totalCount += cachedContainers.back().itemCount;
 
 	auto&& cell = player->GetParentCell();
 	cell->ForEachReferenceInRange(player->GetPosition(), range, [&](RE::TESObjectREFR& obj) {
@@ -190,8 +202,8 @@ int CraftingPullFromContainers::GetInventoryItemCount(RE::InventoryChanges* inv,
 			if (obj.IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || IgnoreOwnership) {
 				if (std::find(permaLinks.begin(), permaLinks.end(), obj.formID) != permaLinks.end()) return RE::BSContainer::ForEachResult::kContinue;
 
-				cachedContainers.push_back({ obj.CreateRefHandle(), _GetInventoryItemCount(obj.GetInventoryChanges(), item, filterClass) - 1});
-				totalCount += cachedContainers.back().itemCount + 1;
+				cachedContainers.push_back({ obj.CreateRefHandle(), _GetInventoryItemCount(obj.GetInventoryChanges(), item, filterClass)});
+				totalCount += cachedContainers.back().itemCount;
 			}
 		}
 
@@ -202,13 +214,15 @@ int CraftingPullFromContainers::GetInventoryItemCount(RE::InventoryChanges* inv,
 		auto&& ref = RE::TESObjectREFR::LookupByID<RE::TESObjectREFR>(it);
 		if (ref && ref->GetBaseObject()->Is(RE::FormType::Container)) {
 			if (ref->IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || IgnoreOwnership) {
-				cachedContainers.push_back({ ref->CreateRefHandle(), _GetInventoryItemCount(ref->GetInventoryChanges(), item ,filterClass) - 1});
-				totalCount += cachedContainers.back().itemCount + 1;
+				cachedContainers.push_back({ ref->CreateRefHandle(), _GetInventoryItemCount(ref->GetInventoryChanges(), item ,filterClass)});
+				totalCount += cachedContainers.back().itemCount;
 
 				logger::debug("Added PermaLink Container {:X}({})", ref->formID, cachedContainers.back().cont.native_handle());
 			}
 		}
 	}
+
+	logger::debug("[GetInventoryItemCount] {} count is {}", item->GetName(), totalCount);
 
 	return totalCount;
 }
