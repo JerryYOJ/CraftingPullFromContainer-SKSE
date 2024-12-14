@@ -42,6 +42,7 @@ namespace LinkStorage {
 					else orig += std::format(",0x{:X}", cont->formID);
 
 					CraftingPullFromContainers::cfg.modify("CraftingPullFromContainers", "PermaLinks", orig);
+					CraftingPullFromContainers::usedFurniture.reset();
 					PRINT("Added 0x%X", cont->formID);
 				}
 				else {
@@ -75,6 +76,7 @@ namespace LinkStorage {
 					}
 
 					CraftingPullFromContainers::cfg.modify("CraftingPullFromContainers", "PermaLinks", orig);
+					CraftingPullFromContainers::usedFurniture.reset();
 				}
 				else {
 					PRINT("Not Found");

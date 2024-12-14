@@ -128,6 +128,7 @@ RE::InventoryEntryData* CraftingPullFromContainers::GetInventoryItemEntryAtIdx(R
 			auto* invEntry = _GetInventoryItemEntryAtIdx(it.cont.get().get(), idx - totalCumulation, false);
 			if (invEntry == nullptr) return invEntry;
 			if ((invEntry->GetObject()->IsWeapon() || invEntry->GetObject()->IsArmor()) && it.cont.get().get() != RE::PlayerCharacter::GetSingleton()) return nullptr;
+			if (!invEntry->IsOwnedBy(RE::PlayerCharacter::GetSingleton()) && !IgnoreOwnership) return nullptr;
 
 			auto obj = invEntry->GetObject();
 
