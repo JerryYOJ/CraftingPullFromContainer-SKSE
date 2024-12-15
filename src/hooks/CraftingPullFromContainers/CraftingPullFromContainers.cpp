@@ -144,6 +144,8 @@ RE::InventoryEntryData* CraftingPullFromContainers::GetInventoryItemEntryAtIdx(R
 
 			logger::debug("[GetInventoryItemEntryAtIdx] Adding {}", obj->GetName());
 
+			if (obj->IsWeapon() || obj->IsArmor()) return invEntry;
+
 			if (cachedStationInventory.contains(obj)) {
 				if (cachedStationInventory[invEntry->GetObject()]->object != invEntry->GetObject()) {
 					cachedStationInventory.erase(invEntry->GetObject());
@@ -177,12 +179,14 @@ int CraftingPullFromContainers::GetInventoryItemCount(RE::InventoryChanges* inv,
 
 			for (auto&& it : cachedContainers) {
 				if (!it.cont || it.cont.get() == nullptr) return false;
+
 				totalCount += _GetInventoryItemCount(it.cont.get().get()->GetInventoryChanges(), item, filterClass);
 			}
 			return true;
 			};
 		if (Validate()) {
 			//cachedStationInventory.clear();
+			logger::debug("[GetInventoryItemCount] {} count is {}", item->GetName(), totalCount);
 			return totalCount;
 		}
 	}
