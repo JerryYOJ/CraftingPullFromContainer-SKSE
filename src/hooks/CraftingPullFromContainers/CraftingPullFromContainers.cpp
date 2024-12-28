@@ -19,6 +19,41 @@ bool CraftingPullFromContainers::IgnoreOwnership = false;
 
 //bool GottenItemCounts = false;
 
+static bool CheckRef(RE::TESObjectREFR* ref) {
+
+	auto IsMerchantChest = [&](RE::TESObjectREFR* ref) {
+		static std::once_flag init;
+		static std::vector<RE::TESObjectREFR*>Forbidden;
+		std::call_once(init, [&]() {
+			auto* dh = RE::TESDataHandler::GetSingleton();
+			if (dh) {
+				auto& forms = dh->GetFormArray<RE::TESFaction>();
+				uint32_t size = forms.size();
+				for (uint32_t i = 0; i < size; ++i) {
+					auto faction = forms[i];
+					if (!faction)
+						continue;
+					auto jc = faction->crimeData.factionPlayerInventoryContainer;
+					auto sc = faction->crimeData.factionStolenContainer;
+					auto mc = faction->vendorData.merchantContainer;
+					if (jc)
+						Forbidden.push_back(jc);
+					if (sc && sc != jc)
+						Forbidden.push_back(sc);
+					if (mc && mc != jc && mc != sc)
+						Forbidden.push_back(mc);
+				}
+			}
+			});
+
+		for (auto&& it : Forbidden) if (it == ref) return true;
+
+		return false;
+		};
+
+	return ref && ref->GetBaseObject()->Is(RE::FormType::Container) && (ref->IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || CraftingPullFromContainers::IgnoreOwnership) && (!IsMerchantChest(ref) || CraftingPullFromContainers::IgnoreOwnership);
+}
+
 void CraftingPullFromContainers::Install()
 {
 	REL::Relocation<std::uintptr_t> GetItemCount{ RELOCATION_ID(19274, 19700) };
@@ -88,18 +123,16 @@ int CraftingPullFromContainers::GetContainerItemCount(RE::TESObjectREFR* cont, b
 
 	auto&& cell = player->GetParentCell();
 	cell->ForEachReferenceInRange(player->GetPosition(), range, [&](RE::TESObjectREFR& obj) {
-		if (obj.GetBaseObject()->Is(RE::FormType::Container)) {
-			if (obj.IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || IgnoreOwnership) {
-				if (std::find(permaLinks.begin(), permaLinks.end(), obj.formID) != permaLinks.end()) 
-					return RE::BSContainer::ForEachResult::kContinue;
+		if (CheckRef(&obj)) {
+			if (std::find(permaLinks.begin(), permaLinks.end(), obj.formID) != permaLinks.end())
+				return RE::BSContainer::ForEachResult::kContinue;
 
 
-				cachedContainers.push_back({ obj.CreateRefHandle(), _GetContainerItemCount(&obj, false, true) - 1});
+			cachedContainers.push_back({ obj.CreateRefHandle(), _GetContainerItemCount(&obj, false, true) - 1 });
 
-				logger::debug("[GetContainerItemCount] searching {} got {}", obj.GetDisplayFullName(), cachedContainers.back().itemCount + 1);
+			logger::debug("[GetContainerItemCount] searching {} got {}", obj.GetDisplayFullName(), cachedContainers.back().itemCount + 1);
 
-				totalCount += cachedContainers.back().itemCount + 1;
-			}
+			totalCount += cachedContainers.back().itemCount + 1;
 		}
 
 		return RE::BSContainer::ForEachResult::kContinue;
@@ -107,13 +140,11 @@ int CraftingPullFromContainers::GetContainerItemCount(RE::TESObjectREFR* cont, b
 	
 	for (auto&& it : permaLinks) {
 		auto&& ref = RE::TESObjectREFR::LookupByID<RE::TESObjectREFR>(it);
-		if (ref && ref->GetBaseObject()->Is(RE::FormType::Container)) {
-			if (ref->IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || IgnoreOwnership) {
-				cachedContainers.push_back({ ref->CreateRefHandle(), _GetContainerItemCount(ref, false, true) - 1});
-				totalCount += cachedContainers.back().itemCount + 1;
+		if (CheckRef(ref)) {
+			cachedContainers.push_back({ ref->CreateRefHandle(), _GetContainerItemCount(ref, false, true) - 1 });
+			totalCount += cachedContainers.back().itemCount + 1;
 
-				logger::debug("Added PermaLink Container {:X}({})", ref->formID, cachedContainers.back().cont.native_handle());
-			}
+			logger::debug("Added PermaLink Container {:X}({})", ref->formID, cachedContainers.back().cont.native_handle());
 		}
 	}
 
@@ -202,13 +233,11 @@ int CraftingPullFromContainers::GetInventoryItemCount(RE::InventoryChanges* inv,
 	auto&& cell = player->GetParentCell();
 	cell->ForEachReferenceInRange(player->GetPosition(), range, [&](RE::TESObjectREFR& obj) {
 
-		if (obj.GetBaseObject()->Is(RE::FormType::Container)) {
-			if (obj.IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || IgnoreOwnership) {
-				if (std::find(permaLinks.begin(), permaLinks.end(), obj.formID) != permaLinks.end()) return RE::BSContainer::ForEachResult::kContinue;
+		if (CheckRef(&obj)) {
+			if (std::find(permaLinks.begin(), permaLinks.end(), obj.formID) != permaLinks.end()) return RE::BSContainer::ForEachResult::kContinue;
 
-				cachedContainers.push_back({ obj.CreateRefHandle(), _GetInventoryItemCount(obj.GetInventoryChanges(), item, filterClass)});
-				totalCount += cachedContainers.back().itemCount;
-			}
+			cachedContainers.push_back({ obj.CreateRefHandle(), _GetInventoryItemCount(obj.GetInventoryChanges(), item, filterClass) });
+			totalCount += cachedContainers.back().itemCount;
 		}
 
 		return RE::BSContainer::ForEachResult::kContinue;
@@ -216,13 +245,12 @@ int CraftingPullFromContainers::GetInventoryItemCount(RE::InventoryChanges* inv,
 	
 	for (auto&& it : permaLinks) {
 		auto&& ref = RE::TESObjectREFR::LookupByID<RE::TESObjectREFR>(it);
-		if (ref && ref->GetBaseObject()->Is(RE::FormType::Container)) {
-			if (ref->IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false) || IgnoreOwnership) {
-				cachedContainers.push_back({ ref->CreateRefHandle(), _GetInventoryItemCount(ref->GetInventoryChanges(), item ,filterClass)});
-				totalCount += cachedContainers.back().itemCount;
+		
+		if (CheckRef(ref)) {
+			cachedContainers.push_back({ ref->CreateRefHandle(), _GetInventoryItemCount(ref->GetInventoryChanges(), item ,filterClass) });
+			totalCount += cachedContainers.back().itemCount;
 
-				logger::debug("Added PermaLink Container {:X}({})", ref->formID, cachedContainers.back().cont.native_handle());
-			}
+			logger::debug("Added PermaLink Container {:X}({})", ref->formID, cachedContainers.back().cont.native_handle());
 		}
 	}
 
