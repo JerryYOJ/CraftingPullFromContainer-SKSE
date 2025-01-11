@@ -93,36 +93,18 @@ namespace LinkStorage {
 				return;
 			}
 
-			using SetPersistent_t = void(*)(RE::TESObjectREFR*, bool);
-			REL::Relocation<SetPersistent_t>SetPersistent{ RELOCATION_ID(19182, 19597) };
+			using PromoteReference_t = bool(*)(void* manager, RE::TESObjectREFR*, RE::TESForm* owner);
+			static REL::Relocation<PromoteReference_t>PromoteReference{ RELOCATION_ID(15157, 15330) };
+
+			using DemoteReference_t = bool(*)(void* manager, RE::TESObjectREFR*, RE::TESForm* owner, bool a_allowForActors);
+			static REL::Relocation<DemoteReference_t>DemoteReference{ RELOCATION_ID(15158, 15331) };
 
 			bool Switch = args[0] == "true";
 
 			if (Switch) {
-				auto cell = a_targetRef->GetSaveParentCell();
-
-				if (cell->GetRuntimeData().worldSpace == nullptr) {
-					cell->GetRuntimeData().worldSpace = RE::TESForm::LookupByID<RE::TESWorldSpace>(0x0000003C);
-					cell->formFlags |= RE::TESObjectCELL::RecordFlags::kPersistent;
-					cell->cellFlags.reset(RE::TESObjectCELL::Flag::kIsInteriorCell);
-
-					SetPersistent(a_targetRef, Switch);
-
-					cell->cellFlags.set(RE::TESObjectCELL::Flag::kIsInteriorCell);
-					cell->formFlags &= ~RE::TESObjectCELL::RecordFlags::kPersistent;
-					cell->GetRuntimeData().worldSpace = nullptr;
-				}
-				else if ((cell->formFlags & RE::TESObjectCELL::RecordFlags::kPersistent) == 0) {
-					cell->formFlags |= RE::TESObjectCELL::RecordFlags::kPersistent;
-
-					SetPersistent(a_targetRef, Switch);
-
-					cell->formFlags &= ~RE::TESObjectCELL::RecordFlags::kPersistent;
-				}
-
-				SetPersistent(a_targetRef, Switch);
+				PromoteReference(nullptr, a_targetRef, RE::PlayerCharacter::GetSingleton()->GetBaseObject());
 			}
-			else SetPersistent(a_targetRef, Switch);
+			else DemoteReference(nullptr, a_targetRef, RE::PlayerCharacter::GetSingleton()->GetBaseObject(), true);
 
 			PRINT("Set %X to %d", a_targetRef->formID, Switch);
 			});
@@ -137,11 +119,14 @@ namespace LinkStorage {
 
 			auto&& ID = std::stoll(args[0], nullptr, 16);
 			auto&& form = RE::TESObjectREFR::LookupByID(ID);
-			if (form && form->Is(RE::FormType::Reference) && form->As<RE::TESObjectREFR>()->GetBaseObject()->Is(RE::FormType::Container)) cont = form->As<RE::TESObjectREFR>();
+			if (form) if (form->Is(RE::FormType::ActorCharacter) || (form->Is(RE::FormType::Reference) && form->As<RE::TESObjectREFR>()->GetBaseObject()->Is(RE::FormType::Container))) cont = form->As<RE::TESObjectREFR>();
 			
-			if (cont) cont->ActivateRef(RE::PlayerCharacter::GetSingleton(), 0, nullptr, cont->extraList.GetCount(), false);
+			using OpenContainer_t = void(*)(RE::TESObjectREFR*, int opening_type);
+			static REL::Relocation<OpenContainer_t>OpenContainer{ RELOCATION_ID(50211, 51140) };
+
+			if (cont) OpenContainer(cont, 0);
 			else {
-				PRINT("Cannot find ref container");
+				PRINT("Cannot find ref");
 			}
 			});
 	}
