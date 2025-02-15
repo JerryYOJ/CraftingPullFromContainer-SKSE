@@ -8,6 +8,7 @@ class CraftingPullFromContainers {
 
 public:
     static void Install();
+    static void InstallLate();
     static float range;
     static bool IgnoreOwnership;
     static std::vector<LocalForm> permaLinks;

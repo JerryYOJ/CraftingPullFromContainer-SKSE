@@ -61,14 +61,14 @@ public:
 
 			if (id >= 0xFF000000) {
 				res.push_back({id, ""});
-				logger::info("Loaded Dynamic {:X}", id);
+				logger::info("Loaded Dynamic 0x{:X}", id);
 			}
 			else {
 				auto&& formID = RE::TESDataHandler::GetSingleton()->LookupFormID(id, plugin);
 				if (formID) res.push_back({id, plugin});
-				else logger::error("Failed to lookup form {:X}:{}", id, plugin);
+				else logger::error("Failed to lookup form 0x{:X}:{}", id, plugin);
 
-				logger::info("Loaded Form {:X}", formID);
+				logger::info("Loaded Form 0x{:X}", formID);
 			}
 		}
 	}
@@ -99,7 +99,7 @@ public:
 			auto idx = content.find(e);
 			auto size = e.size();
 			if (idx != std::string::npos) {
-				if (content.at(idx + e.size()) == ',') size++;
+				if (idx + e.size() < content.size() && content.at(idx + e.size()) == ',') size++;
 				content.erase(idx, size);
 
 				Modify(Key, content);
@@ -113,12 +113,12 @@ public:
 		}
 		else {
 			auto content = GetKey(Key);
-			std::string e = std::format("0x{:X}~{}", formID, it->modname);
+			std::string e = std::format("0x{:X}~{}", it->localID, it->modname);
 
 			auto idx = content.find(e);
 			auto size = e.size();
 			if (idx != std::string::npos) {
-				if (content.at(idx + e.size()) == ',') size++;
+				if (idx + e.size() < content.size() && content.at(idx + e.size()) == ',') size++;
 				content.erase(idx, size);
 
 				Modify(Key, content);

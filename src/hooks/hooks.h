@@ -13,4 +13,10 @@ namespace Hooks {
         MH_EnableHook(MH_ALL_HOOKS);
         return;
     }
+
+    void InstallLate() {
+
+        CraftingPullFromContainers::InstallLate();
+
+    }
 }

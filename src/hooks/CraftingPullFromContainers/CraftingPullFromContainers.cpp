@@ -67,16 +67,18 @@ void CraftingPullFromContainers::Install()
 	logger::debug("MH_CreateHook4 {}", MH_CreateHook((void*)SetEnchOnItem.address(), SetEnchantmentOnItem, reinterpret_cast<void**>(&_SetEnchantmentOnItem)));
 
 	_RemoveItem = REL::Relocation<uintptr_t>(RE::VTABLE_PlayerCharacter[0]).write_vfunc(0x56, RemoveItem);
+}
 
+void CraftingPullFromContainers::InstallLate() {
 	auto&& cfg = ConfigManager::getInstance();
 
 	cfg.HasKey("Range", "800");
 	cfg.HasKey("IgnoreOwnership", "false");
 	cfg.HasKey("PermaLinks", "");
-	
+
 	range = std::stof(cfg.GetKey("Range"));
 	IgnoreOwnership = cfg.GetKey("IgnoreOwnership").contains("true");
-	
+
 	cfg.GetFormList("PermaLinks", permaLinks);
 
 	logger::info("[LoadConfig] Range:{}  bIgnoreOwnership:{}  permaLinksCount:{}", range, IgnoreOwnership, permaLinks.size());

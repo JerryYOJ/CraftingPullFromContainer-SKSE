@@ -23,6 +23,12 @@ SKSEPluginLoad(const SKSE::LoadInterface *skse) {
     InitializeLog();
     SKSE::AllocTrampoline(1 << 7);
 
+    SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message* message) {
+        if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+            Hooks::InstallLate();
+        }
+        });
+
     Hooks::Install();
     Commands::Install();
 
