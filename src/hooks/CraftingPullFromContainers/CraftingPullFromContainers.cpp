@@ -2,6 +2,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "CraftingPullFromContainers.h"
+#include "../../configmanager.h"
 
 #undef GetObject
 
@@ -12,8 +13,7 @@ std::vector<CraftingPullFromContainers::CONT> CraftingPullFromContainers::cached
 std::unordered_map<RE::TESBoundObject*, RE::InventoryEntryData*> CraftingPullFromContainers::cachedStationInventory;
 
 //Config
-std::vector<RE::FormID> CraftingPullFromContainers::permaLinks;
-inicpp::IniManager CraftingPullFromContainers::cfg("Data/SKSE/Plugins/CraftingPullFromContainers.ini");
+std::vector<LocalForm> CraftingPullFromContainers::permaLinks;
 float CraftingPullFromContainers::range = 800.f;
 bool CraftingPullFromContainers::IgnoreOwnership = false;
 
@@ -68,16 +68,16 @@ void CraftingPullFromContainers::Install()
 
 	_RemoveItem = REL::Relocation<uintptr_t>(RE::VTABLE_PlayerCharacter[0]).write_vfunc(0x56, RemoveItem);
 
-	if (!cfg["CraftingPullFromContainers"].isKeyExist("Range")) cfg.modify("CraftingPullFromContainers", "Range", "800");
-	if (!cfg["CraftingPullFromContainers"].isKeyExist("IgnoreOwnership")) cfg.modify("CraftingPullFromContainers", "IgnoreOwnership", "false", "true/false");
-	if (!cfg["CraftingPullFromContainers"].isKeyExist("PermaLinks")) cfg.modify("CraftingPullFromContainers", "PermaLinks", "");
-	cfg.parse();
+	auto&& cfg = ConfigManager::getInstance();
+
+	cfg.HasKey("Range", "800");
+	cfg.HasKey("IgnoreOwnership", "false");
+	cfg.HasKey("PermaLinks", "");
 	
-	range = std::stof(cfg["CraftingPullFromContainers"]["Range"]);
-	IgnoreOwnership = cfg["CraftingPullFromContainers"]["IgnoreOwnership"].contains("true");
-	std::vector<std::string> IDs;
-	if(!cfg["CraftingPullFromContainers"]["PermaLinks"].empty()) boost::split(IDs, cfg["CraftingPullFromContainers"]["PermaLinks"], boost::is_any_of(","));
-	if(!IDs.empty()) for (auto&& it : IDs) permaLinks.push_back(std::stoll(it, nullptr, 16));
+	range = std::stof(cfg.GetKey("Range"));
+	IgnoreOwnership = cfg.GetKey("IgnoreOwnership").contains("true");
+	
+	cfg.GetFormList("PermaLinks", permaLinks);
 
 	logger::info("[LoadConfig] Range:{}  bIgnoreOwnership:{}  permaLinksCount:{}", range, IgnoreOwnership, permaLinks.size());
 }

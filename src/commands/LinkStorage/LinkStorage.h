@@ -1,5 +1,7 @@
 #include "../../commandmanager.h"
 
+#include "../../configmanager.h"
+
 class CraftingPullFromContainers;
 namespace LinkStorage {
 	void Install() {
@@ -34,15 +36,9 @@ namespace LinkStorage {
 
 			if (cont->GetBaseObject()->Is(RE::FormType::Container)) {
 				if (cont->IsAnOwner(RE::PlayerCharacter::GetSingleton(), true, false)) {
-					CraftingPullFromContainers::permaLinks.push_back(cont->formID);
 
-					auto orig = CraftingPullFromContainers::cfg["CraftingPullFromContainers"]["PermaLinks"];
+					ConfigManager::getInstance().AddToFormList("PermaLinks", CraftingPullFromContainers::permaLinks, cont);
 
-					if(orig == "") orig += std::format("0x{:X}", cont->formID);
-					else orig += std::format(",0x{:X}", cont->formID);
-
-					CraftingPullFromContainers::cfg.modify("CraftingPullFromContainers", "PermaLinks", orig);
-					CraftingPullFromContainers::usedFurniture.reset();
 					PRINT("Added 0x%X", cont->formID);
 				}
 				else {
@@ -52,35 +48,18 @@ namespace LinkStorage {
 			});
 		CommandManager::Register("ListLink", [](cmd) {
 			for (auto&& it : CraftingPullFromContainers::permaLinks) {
-				PRINT("0x%X", it);
+				PRINT("0x%X", it.Get());
 			}
 			});
 		CommandManager::Register("RemoveLink", [](cmd) {
 			if (args.size() == 1) {
 				auto&& ID = std::stoll(args[0], nullptr, 16);
-				bool found = false;
-				CraftingPullFromContainers::permaLinks.erase(std::remove_if(CraftingPullFromContainers::permaLinks.begin(), CraftingPullFromContainers::permaLinks.end(), [&](RE::FormID id) {
-					if (id == ID) {
-						found = true;
-						return id == ID;
-					}
-					return false;
-					}), CraftingPullFromContainers::permaLinks.end());
-				if (found) {
-					std::string str = std::format("0x{:X}", ID);
-					auto orig = CraftingPullFromContainers::cfg["CraftingPullFromContainers"]["PermaLinks"];
-					auto&& idx = orig.find(str);
-					if (idx != std::string::npos && idx <= orig.size()) {
-						if (idx == 0) orig.erase(idx, idx + str.size());
-						else orig.erase(idx - 1, idx + str.size() - 1);
-					}
+				
+				if (!ConfigManager::getInstance().RemoveFromFormList("PermaLinks", CraftingPullFromContainers::permaLinks, ID)) {
+					PRINT("Not Found, check log");
+				}
 
-					CraftingPullFromContainers::cfg.modify("CraftingPullFromContainers", "PermaLinks", orig);
-					CraftingPullFromContainers::usedFurniture.reset();
-				}
-				else {
-					PRINT("Not Found");
-				}
+				CraftingPullFromContainers::usedFurniture.reset();
 			}
 			else {
 				PRINT("Argument must be one ref id");

@@ -2,14 +2,15 @@
 
 #include "../../Ini.hpp"
 
+#include "../../configmanager.h"
+
 class CraftingPullFromContainers {
 
 public:
     static void Install();
     static float range;
     static bool IgnoreOwnership;
-    static inicpp::IniManager cfg;
-    static std::vector<RE::FormID> permaLinks;
+    static std::vector<LocalForm> permaLinks;
 
 //protected:
     static int GetContainerItemCount(RE::TESObjectREFR* cont, bool bUseMechant, bool bUnkTrue);
